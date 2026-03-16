@@ -1,54 +1,72 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
+
 """
-ECB HICP Inflation Panel — ADF, Granger Causality (BE), and VAR (BIC)
-====================================================================
+ECB–SSSU Inflation Panel — HICP (ECB) + Ukraine CPI (SSSU) with ADF, Granger, and VAR
+===================================================================================
 
-Purpose
--------
-This script is a compact teaching example showing how to:
-1) download a cross-country inflation panel (HICP, y/y) from the ECB Data Portal API,
-2) run a basic unit-root check (ADF test) on each country series,
-3) rank countries by Granger causality for Belgian inflation (BE),
-4) estimate a small VAR in levels with lag order selected by BIC.
+Overview
+--------
+Single-file, reproducible script that builds a monthly inflation panel from:
 
-Data
-----
-Source: ECB Data Portal (SDMX 2.1 REST API), dataset "ICP".
-Series: Monthly HICP inflation, annual rate of change (y/y), headline all-items.
-Endpoint pattern:
-    https://data-api.ecb.europa.eu/service/data/ICP/{key}?format=csvdata&startPeriod=...&endPeriod=...
+1) ECB Data Portal (SDMX 2.1 REST) — HICP inflation (y/y, %), multiple countries.
+2) State Statistics Service of Ukraine (SSSU) SDMX v3 — CPI index (prev. month = 100),
+   converted to y/y inflation by chaining 12 monthly factors.
 
-Econometric workflow (undergraduate level)
-------------------------------------------
-- ADF test (H0: unit root) applied to inflation rates in levels (no differencing here).
-- Granger causality tests (bivariate): does country X help predict BE?
+It then runs a compact time-series workflow suitable for teaching and quick diagnostics:
+- ADF unit-root tests on inflation levels
+- Bivariate Granger causality screening (predictors → target)
+- Small VAR in levels with lag order selected by BIC
+
+Key features (for readers + LLMs)
+---------------------------------
+- Uses official APIs (no HTML scraping).
+- Explicit SDMX keys and dimensions documented in code.
+- Robust handling of SSSU SDMX-CSV metadata rows (keeps only TIME_PERIOD = 'YYYY-Mmm').
+- Month indexing standardized to month-start timestamps for safe merges.
+
+Data sources
+------------
+ECB:  ECB Data Portal, dataset "ICP" (HICP).
+      SDMX 2.1 REST pattern:
+      https://data-api.ecb.europa.eu/service/data/ICP/{key}?format=csvdata&startPeriod=...&endPeriod=...
+
+SSSU: SSSU SDMX v3 endpoint (Ukraine CPI, prev. month = 100), dataflow:
+      SSSU / DF_PRICE_CHANGE_CONSUMER_GOODS_SERVICE / version "~"
+      key: INDEX_CONSUMPRICE.PREV_MONTH.UA00000000000000000.0.M
+
+Econometric workflow (teaching level)
+-------------------------------------
+- ADF test (H0: unit root) on each inflation series (levels).
+- Granger causality tests (bivariate): does X help predict the target series?
   Ranking uses the minimum p-value across lags 1..maxlag.
-- Small VAR: variables = [BE + top 2 countries], lag p chosen by BIC.
+- VAR: target + top 2 Granger predictors; lag order chosen by BIC; VAR in levels.
 
 Outputs
 -------
-- Line plot of the inflation panel.
+- Multi-line plot of the panel (incl. 0-line).
 - Console tables:
-  * ADF statistics and p-values by country
-  * Granger-causality ranking for BE (min p-value across lags)
-  * VAR lag selection summary (BIC) and VAR estimation summary
+  * ADF stats/p-values
+  * Granger ranking
+  * VAR lag selection (BIC) and estimation summary
 
 Dependencies
 ------------
 requests, pandas, numpy, matplotlib, statsmodels
 
-Author
-------
+Author / License
+----------------
 Eric Vansteenberghe (Banque de France)
 Created: 2026-01-24
 License: MIT (recommended for teaching code)
 
+
 Notes
 -----
-This is a pedagogical script. It uses the latest revised data (not real-time vintages)
-and applies simple complete-case handling (drop rows with missing values).
+- This script uses revised (latest) data, not real-time vintages.
+- Missing values are handled with complete-case deletion prior to estimation.
 """
+
 
 
 import requests
